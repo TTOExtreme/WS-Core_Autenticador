@@ -1,7 +1,10 @@
 import { Modelo_Config } from "../Models/Modelo_Configuracao";
 import { Conector_Mysql } from "./Lib/Conector_Mysql";
+import { Config_Usuarios } from "./_Usuarios/Config_Usuarios";
+import { _Usuarios } from '../Models/DB/_Usuarios';
 import { Logger } from "./Lib/Logger";
 import *  as fs from 'fs';
+import { BCypher } from "./Lib/BCypher";
 
 
 
@@ -9,12 +12,14 @@ export class Cadastro_Dados_Banco {
     private _Logger: Logger; // Instância do Logger para capturar logs
     private _BD: Conector_Mysql; // Conexão com o banco de dados MySQL
     private _Config: Modelo_Config; // Instância de configuração do sistema
+    private _Config_Usuarios: Config_Usuarios; // Instância de configuração de usuários
 
     // Construtor inicializa o objeto com as configurações e a conexão ao banco de dados
     constructor(_config: Modelo_Config, _bd: Conector_Mysql) {
         this._Config = _config; // Armazena a configuração passada
         this._BD = _bd; // Armazena a conexão com o banco de dados
         this._Logger = new Logger(); // Cria uma nova instância de Logger
+        this._Config_Usuarios = new Config_Usuarios(this._Config, this._BD); // Cria uma nova instância de Configuração de Usuários
 
     }
 
@@ -121,7 +126,21 @@ export class Cadastro_Dados_Banco {
                     Promise.all(a_table_proms).finally(() => {
                         Promise.all(d_table_proms).finally(() => {
                             this._Logger.System("[Install] Finalizado Preparo do Banco de dados")
-                            Inicializar_resolv();
+                            let user = new _Usuarios();
+                            user.nome = "Adiministrador";
+                            user.usuario = "wscore";
+                            user.email = "admin@wscore";
+                            user.senha = new BCypher().sha3("wscore");
+
+                            this._Config_Usuarios.NewUser(user, 0).then(() => {
+                                this._Logger.System("[Install] Criado Usuário Administrador")
+                                this._Logger.System("[Install] user: wscore")
+                                this._Logger.System("[Install] senha: wscore")
+                                Inicializar_resolv();
+                            }).catch(err => {
+                                this._Logger.Error(err)
+                                Inicializar_reject();
+                            })
                         }).catch(err => {
                             this._Logger.Error(err)
                             Inicializar_reject();
